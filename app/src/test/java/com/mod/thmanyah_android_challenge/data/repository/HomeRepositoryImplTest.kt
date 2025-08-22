@@ -1,5 +1,6 @@
 package com.mod.thmanyah_android_challenge.data.repository
 
+import android.util.Log
 import com.mod.thmanyah_android_challenge.core.util.Result
 import com.mod.thmanyah_android_challenge.data.dto.ContentItemDto
 import com.mod.thmanyah_android_challenge.data.dto.HomeSectionDto
@@ -9,6 +10,9 @@ import com.mod.thmanyah_android_challenge.data.remote.api.HomeApiService
 import com.mod.thmanyah_android_challenge.domain.model.AudioBook
 import com.mod.thmanyah_android_challenge.domain.model.Episode
 import com.mod.thmanyah_android_challenge.domain.model.Podcast
+import io.mockk.MockKException
+import io.mockk.every
+import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -17,7 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
-import org.mockito.exceptions.base.MockitoException
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -31,66 +34,86 @@ class HomeRepositoryImplTest {
     fun setup() {
         MockitoAnnotations.openMocks(this)
         repository = HomeRepositoryImpl(mockApiService)
+        mockkStatic(Log::class)
+        every { Log.e(any(), any(), any<Throwable>()) } returns 0
     }
 
     @Test
-    fun `getHomeSections should return Success with mapped data when API call succeeds`() = runTest {
-        val mockDto = createMockHomeSectionsResponseDto()
-        whenever(mockApiService.getHomeSections(1)).thenReturn(mockDto)
+    fun `getHomeSections should return Success with mapped data when API call succeeds`() =
+        runTest {
+            val mockDto = createMockHomeSectionsResponseDto()
+            whenever(mockApiService.getHomeSections(1)).thenReturn(mockDto)
 
-        val result = repository.getHomeSections(1)
+            val result = repository.getHomeSections(1)
+
+            assertTrue(result is Result.Success)
+            val successResult = result as Result.Success
+
+            assertEquals(2, successResult.data.sections.size)
+
+            val firstSection = successResult.data.sections[0]
+            assertEquals("Top Podcasts", firstSection.name)
+            assertEquals("square", firstSection.type)
+            assertEquals("podcast", firstSection.contentType)
+            assertEquals(1, firstSection.order)
+            assertEquals(2, firstSection.content.size)
+
+            val firstPodcast = firstSection.content[0] as Podcast
+            assertEquals("Test Podcast 1", firstPodcast.name)
+            assertEquals("Test Description 1", firstPodcast.description)
+            assertEquals("https://test.com/image1.jpg", firstPodcast.avatarUrl)
+            assertEquals("podcast_1", firstPodcast.podcastId)
+            assertEquals(50, firstPodcast.episodeCount)
+            assertEquals(3600L, firstPodcast.duration)
+            assertEquals("en", firstPodcast.language)
+            assertEquals(5, firstPodcast.priority)
+            assertEquals(9, firstPodcast.popularityScore)
+
+            val secondSection = successResult.data.sections[1]
+            assertEquals("Trending Episodes", secondSection.name)
+            assertEquals("2_lines_grid", secondSection.type)
+            assertEquals("episode", secondSection.contentType)
+            assertEquals(2, secondSection.order)
+            assertEquals(1, secondSection.content.size)
+
+            val firstEpisode = secondSection.content[0] as Episode
+            assertEquals("Episode 1", firstEpisode.name)
+            assertEquals("Episode Description 1", firstEpisode.description)
+            assertEquals("https://test.com/episode1.jpg", firstEpisode.avatarUrl)
+            assertEquals("ep_1", firstEpisode.episodeId)
+            assertEquals(1, firstEpisode.seasonNumber)
+            assertEquals("full", firstEpisode.episodeType)
+            assertEquals("Test Podcast Show", firstEpisode.podcastName)
+            assertEquals("Test Author", firstEpisode.authorName)
+            assertEquals(1, firstEpisode.number)
+            assertEquals(1800, firstEpisode.duration)
+            assertEquals("https://test.com/audio1.mp3", firstEpisode.audioUrl)
+            assertEquals("2024-01-01T00:00:00Z", firstEpisode.releaseDate)
+            assertEquals("podcast_1", firstEpisode.podcastId)
+            assertEquals(8, firstEpisode.podcastPopularityScore)
+            assertEquals(4, firstEpisode.podcastPriority)
+
+            assertEquals("/home_sections?page=2", successResult.data.pagination.nextPage)
+            assertEquals(5, successResult.data.pagination.totalPages)
+
+            verify(mockApiService).getHomeSections(1)
+        }
+
+    @Test
+    fun `getHomeSections should handle pagination correctly for subsequent pages`() = runTest {
+        val mockDto = createMockHomeSectionsResponseDto()
+        whenever(mockApiService.getHomeSections(2)).thenReturn(mockDto)
+
+        val result = repository.getHomeSections(2)
 
         assertTrue(result is Result.Success)
         val successResult = result as Result.Success
 
         assertEquals(2, successResult.data.sections.size)
+        assertEquals("Top Podcasts", successResult.data.sections[0].name)
+        assertEquals("Trending Episodes", successResult.data.sections[1].name)
 
-        val firstSection = successResult.data.sections[0]
-        assertEquals("Top Podcasts", firstSection.name)
-        assertEquals("square", firstSection.type)
-        assertEquals("podcast", firstSection.contentType)
-        assertEquals(1, firstSection.order)
-        assertEquals(2, firstSection.content.size)
-
-        val firstPodcast = firstSection.content[0] as Podcast
-        assertEquals("Test Podcast 1", firstPodcast.name)
-        assertEquals("Test Description 1", firstPodcast.description)
-        assertEquals("https://test.com/image1.jpg", firstPodcast.avatarUrl)
-        assertEquals("podcast_1", firstPodcast.podcastId)
-        assertEquals(50, firstPodcast.episodeCount)
-        assertEquals(3600L, firstPodcast.duration)
-        assertEquals("en", firstPodcast.language)
-        assertEquals(5, firstPodcast.priority)
-        assertEquals(9, firstPodcast.popularityScore)
-
-        val secondSection = successResult.data.sections[1]
-        assertEquals("Trending Episodes", secondSection.name)
-        assertEquals("2_lines_grid", secondSection.type)
-        assertEquals("episode", secondSection.contentType)
-        assertEquals(2, secondSection.order)
-        assertEquals(1, secondSection.content.size)
-
-        val firstEpisode = secondSection.content[0] as Episode
-        assertEquals("Episode 1", firstEpisode.name)
-        assertEquals("Episode Description 1", firstEpisode.description)
-        assertEquals("https://test.com/episode1.jpg", firstEpisode.avatarUrl)
-        assertEquals("ep_1", firstEpisode.episodeId)
-        assertEquals(1, firstEpisode.seasonNumber)
-        assertEquals("full", firstEpisode.episodeType)
-        assertEquals("Test Podcast Show", firstEpisode.podcastName)
-        assertEquals("Test Author", firstEpisode.authorName)
-        assertEquals(1, firstEpisode.number)
-        assertEquals(1800, firstEpisode.duration)
-        assertEquals("https://test.com/audio1.mp3", firstEpisode.audioUrl)
-        assertEquals("2024-01-01T00:00:00Z", firstEpisode.releaseDate)
-        assertEquals("podcast_1", firstEpisode.podcastId)
-        assertEquals(8, firstEpisode.podcastPopularityScore)
-        assertEquals(4, firstEpisode.podcastPriority)
-
-        assertEquals("/home_sections?page=2", successResult.data.pagination.nextPage)
-        assertEquals(5, successResult.data.pagination.totalPages)
-
-        verify(mockApiService).getHomeSections(1)
+        verify(mockApiService).getHomeSections(2)
     }
 
     @Test
@@ -116,7 +139,7 @@ class HomeRepositoryImplTest {
 
     @Test
     fun `getHomeSections should return Error when API throws IOException`() = runTest {
-        val exception = MockitoException("Network connection failed")
+        val exception = MockKException("Network connection failed")
         whenever(mockApiService.getHomeSections(1)).thenThrow(exception)
 
         val result = repository.getHomeSections(1)
@@ -129,7 +152,7 @@ class HomeRepositoryImplTest {
 
     @Test
     fun `getHomeSections should return Error when API throws SocketTimeoutException`() = runTest {
-        val exception = MockitoException("Request timeout")
+        val exception = MockKException("Request timeout")
         whenever(mockApiService.getHomeSections(1)).thenThrow(exception)
 
         val result = repository.getHomeSections(1)
@@ -142,7 +165,7 @@ class HomeRepositoryImplTest {
 
     @Test
     fun `getHomeSections should return Error when API throws UnknownHostException`() = runTest {
-        val exception = MockitoException("Unable to resolve host")
+        val exception = MockKException("Unable to resolve host")
         whenever(mockApiService.getHomeSections(1)).thenThrow(exception)
 
         val result = repository.getHomeSections(1)

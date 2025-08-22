@@ -115,17 +115,44 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `loadMore should append new sections to existing ones`() = runTest {
-        val firstPageSections = listOf(
-            HomeSection("Section 1", "square", "podcast", 1, emptyList())
+    fun `loadMore should merge content within existing sections instead of duplicating sections`() = runTest {
+        val firstPagePodcast = Podcast(
+            podcastId = "podcast_1",
+            name = "Test Podcast 1",
+            description = "Description 1",
+            avatarUrl = "url1",
+            episodeCount = 10,
+            duration = 3600,
+            language = "en",
+            priority = 1,
+            popularityScore = 5,
+            score = 100.0
         )
+
+        val secondPagePodcast = Podcast(
+            podcastId = "podcast_2", // Different ID
+            name = "Test Podcast 2",
+            description = "Description 2",
+            avatarUrl = "url2",
+            episodeCount = 15,
+            duration = 4800,
+            language = "en",
+            priority = 2,
+            popularityScore = 7,
+            score = 95.0
+        )
+
+        val firstPageSections = listOf(
+            HomeSection("Top Podcasts", "square", "podcast", 1, listOf(firstPagePodcast))
+        )
+
         val secondPageSections = listOf(
-            HomeSection("Section 2", "queue", "episode", 2, emptyList())
+            HomeSection("Top Podcasts", "square", "podcast", 1, listOf(secondPagePodcast))
         )
 
         val firstResponse = HomeSectionsResponse(
             sections = firstPageSections,
-            pagination = Pagination("/page2", 2)
+            pagination = Pagination("/home_sections?page=2", 2)
         )
         val secondResponse = HomeSectionsResponse(
             sections = secondPageSections,
@@ -139,11 +166,141 @@ class HomeViewModelTest {
         viewModel.loadMore()
 
         val state = viewModel.uiState.first()
-        assertEquals(2, state.sections.size)
-        assertEquals("Section 1", state.sections[0].name)
-        assertEquals("Section 2", state.sections[1].name)
+
+        assertEquals(1, state.sections.size)
+        assertEquals("Top Podcasts", state.sections[0].name)
+
+        assertEquals(2, state.sections[0].content.size)
+
+        val firstContent = state.sections[0].content[0] as Podcast
+        val secondContent = state.sections[0].content[1] as Podcast
+
+        assertEquals("podcast_1", firstContent.podcastId)
+        assertEquals("podcast_2", secondContent.podcastId)
         assertEquals(2, state.currentPage)
         assertFalse(state.hasNextPage)
+    }
+
+    @Test
+    fun `loadMore should not duplicate content items with same ID`() = runTest {
+        val samePodcast = Podcast(
+            podcastId = "podcast_1", // Same ID
+            name = "Test Podcast 1",
+            description = "Description 1",
+            avatarUrl = "url1",
+            episodeCount = 10,
+            duration = 3600,
+            language = "en",
+            priority = 1,
+            popularityScore = 5,
+            score = 100.0
+        )
+
+        val firstPageSections = listOf(
+            HomeSection("Top Podcasts", "square", "podcast", 1, listOf(samePodcast))
+        )
+
+        val secondPageSections = listOf(
+            HomeSection("Top Podcasts", "square", "podcast", 1, listOf(samePodcast)) // Same podcast
+        )
+
+        val firstResponse = HomeSectionsResponse(
+            sections = firstPageSections,
+            pagination = Pagination("/home_sections?page=2", 2)
+        )
+        val secondResponse = HomeSectionsResponse(
+            sections = secondPageSections,
+            pagination = Pagination(null, 2)
+        )
+
+        whenever(homeRepository.getHomeSections(1)).thenReturn(Result.Success(firstResponse))
+        whenever(homeRepository.getHomeSections(2)).thenReturn(Result.Success(secondResponse))
+
+        viewModel = HomeViewModel(homeRepository)
+        viewModel.loadMore()
+
+        val state = viewModel.uiState.first()
+
+        assertEquals(1, state.sections.size)
+        assertEquals("Top Podcasts", state.sections[0].name)
+
+        assertEquals(1, state.sections[0].content.size)
+
+        val content = state.sections[0].content[0] as Podcast
+        assertEquals("podcast_1", content.podcastId)
+    }
+
+    @Test
+    fun `loadMore should handle mixed content types correctly`() = runTest {
+        val podcast = Podcast(
+            podcastId = "podcast_1",
+            name = "Test Podcast",
+            description = "Description",
+            avatarUrl = "url1",
+            episodeCount = 10,
+            duration = 3600,
+            language = "en",
+            priority = 1,
+            popularityScore = 5,
+            score = 100.0
+        )
+
+        val episode = Episode(
+            episodeId = "episode_1",
+            name = "Test Episode",
+            seasonNumber = 1,
+            episodeType = "full",
+            podcastName = "Host Podcast",
+            authorName = "Author",
+            description = "Episode desc",
+            number = 1,
+            duration = 1800,
+            avatarUrl = "url2",
+            separatedAudioUrl = null,
+            audioUrl = "audio.mp3",
+            releaseDate = "2024-01-01",
+            podcastId = "podcast_1",
+            podcastPopularityScore = 8,
+            podcastPriority = 4,
+            score = 95.0
+        )
+
+        val firstPageSections = listOf(
+            HomeSection("Mixed Content", "square", "mixed", 1, listOf(podcast))
+        )
+
+        val secondPageSections = listOf(
+            HomeSection("Mixed Content", "square", "mixed", 1, listOf(episode))
+        )
+
+        val firstResponse = HomeSectionsResponse(
+            sections = firstPageSections,
+            pagination = Pagination("/home_sections?page=2", 2)
+        )
+        val secondResponse = HomeSectionsResponse(
+            sections = secondPageSections,
+            pagination = Pagination(null, 2)
+        )
+
+        whenever(homeRepository.getHomeSections(1)).thenReturn(Result.Success(firstResponse))
+        whenever(homeRepository.getHomeSections(2)).thenReturn(Result.Success(secondResponse))
+
+        viewModel = HomeViewModel(homeRepository)
+        viewModel.loadMore()
+
+        val state = viewModel.uiState.first()
+
+        assertEquals(1, state.sections.size)
+        assertEquals(2, state.sections[0].content.size)
+
+        val firstContent = state.sections[0].content[0]
+        val secondContent = state.sections[0].content[1]
+
+        assertTrue(firstContent is Podcast)
+        assertTrue(secondContent is Episode)
+
+        assertEquals("podcast_1", (firstContent as Podcast).podcastId)
+        assertEquals("episode_1", (secondContent as Episode).episodeId)
     }
 
     @Test
@@ -159,6 +316,7 @@ class HomeViewModelTest {
             .thenReturn(Result.Success(successResponse))
 
         viewModel = HomeViewModel(homeRepository)
+
         var state = viewModel.uiState.first()
         assertEquals(errorMessage, state.error)
 

@@ -1,5 +1,6 @@
 package com.mod.thmanyah_android_challenge.data.repository
 
+import android.util.Log
 import com.mod.thmanyah_android_challenge.core.util.Result
 import com.mod.thmanyah_android_challenge.data.mapper.toDomain
 import com.mod.thmanyah_android_challenge.data.remote.api.HomeApiService
@@ -15,6 +16,7 @@ class HomeRepositoryImpl(
             val response = apiService.getHomeSections(page)
             Result.Success(response.toDomain())
         } catch (e: Exception) {
+            Log.e("HomeRepositoryImpl", "Error occurred in getHomeSections", e)
             Result.Error(e)
         }
     }

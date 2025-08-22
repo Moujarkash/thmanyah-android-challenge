@@ -1,10 +1,13 @@
 package com.mod.thmanyah_android_challenge.data.repository
 
+import android.util.Log
 import com.mod.thmanyah_android_challenge.core.util.Result
 import com.mod.thmanyah_android_challenge.data.dto.SearchResponseDto
 import com.mod.thmanyah_android_challenge.data.dto.SearchResultDto
 import com.mod.thmanyah_android_challenge.data.remote.api.SearchApiService
 import io.mockk.MockKException
+import io.mockk.every
+import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
@@ -24,6 +27,8 @@ class SearchRepositoryImplTest {
     fun setup() {
         MockitoAnnotations.openMocks(this)
         repository = SearchRepositoryImpl(mockSearchApiService)
+        mockkStatic(Log::class)
+        every { Log.e(any(), any(), any<Throwable>()) } returns 0
     }
 
     @Test

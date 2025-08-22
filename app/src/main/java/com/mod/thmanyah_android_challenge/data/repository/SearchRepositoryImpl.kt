@@ -1,5 +1,6 @@
 package com.mod.thmanyah_android_challenge.data.repository
 
+import android.util.Log
 import com.mod.thmanyah_android_challenge.core.util.Result
 import com.mod.thmanyah_android_challenge.data.mapper.toDomain
 import com.mod.thmanyah_android_challenge.data.remote.api.SearchApiService
@@ -15,6 +16,7 @@ class SearchRepositoryImpl(
             val response = searchApiService.search(query)
             Result.Success(response.toDomain())
         } catch (e: Exception) {
+            Log.e("SearchRepositoryImpl", "Error occurred in search", e)
             Result.Error(e)
         }
     }
