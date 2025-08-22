@@ -37,7 +37,7 @@ fun ThmanyahNavigation(
                 onBackClick = {
                     navController.popBackStack()
                 },
-                onResultClick = { searchResult ->
+                onContentClick = { searchResult ->
                     println("Clicked on search result: ${searchResult.name}")
                 }
             )

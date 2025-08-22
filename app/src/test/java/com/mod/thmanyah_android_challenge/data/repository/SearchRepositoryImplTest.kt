@@ -1,9 +1,7 @@
 package com.mod.thmanyah_android_challenge.data.repository
-
 import android.util.Log
 import com.mod.thmanyah_android_challenge.core.util.Result
-import com.mod.thmanyah_android_challenge.data.dto.SearchResponseDto
-import com.mod.thmanyah_android_challenge.data.dto.SearchResultDto
+import com.mod.thmanyah_android_challenge.data.dto.*
 import com.mod.thmanyah_android_challenge.data.remote.api.SearchApiService
 import io.mockk.MockKException
 import io.mockk.every
@@ -32,56 +30,34 @@ class SearchRepositoryImplTest {
     }
 
     @Test
-    fun `search should return Success with mapped data when API call succeeds`() = runTest {
-        val query = "test podcast"
-        val page = 1
-        val mockDto = createMockSearchResponseDto()
-        whenever(mockSearchApiService.search(query)).thenReturn(mockDto)
+    fun `search should return Success with mapped sections when API call succeeds`() = runTest {
+        val query = "kotlin podcast"
+        val mockResponse = createMockSearchResponse()
+        whenever(mockSearchApiService.search(query)).thenReturn(mockResponse)
 
-        val result = repository.search(query, page)
+        val result = repository.search(query)
 
         assertTrue(result is Result.Success)
         val successResult = result as Result.Success
 
-        assertEquals(2, successResult.data.results.size)
-        assertEquals(2, successResult.data.total)
-        assertEquals(1, successResult.data.page)
-        assertEquals(1, successResult.data.totalPages)
+        assertEquals(2, successResult.data.sections.size)
 
-        val firstResult = successResult.data.results[0]
-        assertEquals("podcast_1", firstResult.id)
-        assertEquals("Test Podcast", firstResult.name)
-        assertEquals("A test podcast description", firstResult.description)
-        assertEquals("https://test.com/podcast.jpg", firstResult.avatarUrl)
-        assertEquals("podcast", firstResult.type)
-        assertNull(firstResult.authorName)
-        assertNull(firstResult.podcastName)
-        assertEquals(1800L, firstResult.duration)
-        assertEquals(25, firstResult.episodeCount)
-        assertEquals(95.0, firstResult.score)
+        val firstSection = successResult.data.sections[0]
+        assertEquals("Y", firstSection.name)
+        assertEquals("adipisicing reprehenderit anim", firstSection.type)
+        assertEquals("in Lorem nostrud", firstSection.contentType)
+        assertEquals(1, firstSection.order) // Parsed from malformed string
+        assertEquals(3, firstSection.content.size)
 
-        val secondResult = successResult.data.results[1]
-        assertEquals("episode_1", secondResult.id)
-        assertEquals("Test Episode", secondResult.name)
-        assertEquals("A test episode description", secondResult.description)
-        assertEquals("https://test.com/episode.jpg", secondResult.avatarUrl)
-        assertEquals("episode", secondResult.type)
-        assertEquals("Episode Author", secondResult.authorName)
-        assertEquals("Host Podcast", secondResult.podcastName)
-        assertEquals(1200L, secondResult.duration)
-        assertNull(secondResult.episodeCount)
-        assertEquals(88.5, secondResult.score)
+        val firstContent = firstSection.content[0]
+        assertTrue("Should be a Podcast", firstContent is com.mod.thmanyah_android_challenge.domain.model.Podcast)
 
-        verify(mockSearchApiService).search(query)
-    }
-
-    @Test
-    fun `search should pass correct query to API service`() = runTest {
-        val query = "specific search query"
-        val mockDto = createMockSearchResponseDto()
-        whenever(mockSearchApiService.search(query)).thenReturn(mockDto)
-
-        repository.search(query, 1)
+        val podcast = firstContent as com.mod.thmanyah_android_challenge.domain.model.Podcast
+        assertEquals("Licensed Steel Chips", podcast.name)
+        assertEquals("7f2fe780-5f64-45ed-bfb7-8917fa1cf42f", podcast.podcastId)
+        assertEquals(12, podcast.episodeCount)
+        assertEquals(82952L, podcast.duration)
+        assertEquals("en", podcast.language)
 
         verify(mockSearchApiService).search(query)
     }
@@ -92,7 +68,7 @@ class SearchRepositoryImplTest {
         val exception = MockKException("Network connection failed")
         whenever(mockSearchApiService.search(query)).thenThrow(exception)
 
-        val result = repository.search(query, 1)
+        val result = repository.search(query)
 
         assertTrue(result is Result.Error)
         val errorResult = result as Result.Error
@@ -106,7 +82,7 @@ class SearchRepositoryImplTest {
         val exception = MockKException("Search request timeout")
         whenever(mockSearchApiService.search(query)).thenThrow(exception)
 
-        val result = repository.search(query, 1)
+        val result = repository.search(query)
 
         assertTrue(result is Result.Error)
         val errorResult = result as Result.Error
@@ -115,111 +91,128 @@ class SearchRepositoryImplTest {
     }
 
     @Test
-    fun `search should handle empty search results correctly`() = runTest {
-        val query = "nonexistent"
-        val emptyDto = SearchResponseDto(
-            results = emptyList(),
-            total = 0,
-            page = 1,
-            totalPages = 1
-        )
-        whenever(mockSearchApiService.search(query)).thenReturn(emptyDto)
+    fun `search should pass correct query to API service`() = runTest {
+        val specificQuery = "android development tutorials"
+        val mockResponse = createMockSearchResponse()
+        whenever(mockSearchApiService.search(specificQuery)).thenReturn(mockResponse)
 
-        val result = repository.search(query, 1)
+        repository.search(specificQuery)
 
-        assertTrue(result is Result.Success)
-        val successResult = result as Result.Success
-        assertTrue(successResult.data.results.isEmpty())
-        assertEquals(0, successResult.data.total)
-        assertEquals(1, successResult.data.page)
-        assertEquals(1, successResult.data.totalPages)
+        verify(mockSearchApiService).search(specificQuery)
     }
 
     @Test
-    fun `search should handle results with null optional fields correctly`() = runTest {
-        val query = "test"
-        val dtoWithNulls = SearchResponseDto(
-            results = listOf(
-                SearchResultDto(
-                    id = "result_1",
-                    name = "Result with nulls",
-                    description = "Description",
-                    avatarUrl = "https://test.com/image.jpg",
-                    type = "podcast",
-                    authorName = null,
-                    podcastName = null,
-                    duration = null,
-                    episodeCount = null,
-                    score = null
+    fun `search should handle sections with all malformed content`() = runTest {
+        val query = "malformed"
+        val malformedResponse = SearchResponseDto(
+            sections = listOf(
+                SearchSectionDto(
+                    name = "Malformed Section",
+                    type = "square",
+                    contentType = "podcast",
+                    order = "invalid_order",
+                    content = listOf(
+                        SearchContentItemDto(
+                            name = "Completely Malformed",
+                            description = "Description",
+                            avatarUrl = "https://test.com/malformed.jpg",
+                            episodeCount = "not_a_number",
+                            duration = "also_not_a_number",
+                            language = "Lorem ipsum dolor sit amet",
+                            score = "excellent_but_not_numeric"
+                        )
+                    )
                 )
-            ),
-            total = 1,
-            page = 1,
-            totalPages = 1
+            )
         )
-        whenever(mockSearchApiService.search(query)).thenReturn(dtoWithNulls)
+        whenever(mockSearchApiService.search(query)).thenReturn(malformedResponse)
 
-        val result = repository.search(query, 1)
+        val result = repository.search(query)
 
         assertTrue(result is Result.Success)
         val successResult = result as Result.Success
-        val searchResult = successResult.data.results[0]
 
-        assertEquals("result_1", searchResult.id)
-        assertEquals("Result with nulls", searchResult.name)
-        assertEquals("podcast", searchResult.type)
-        assertNull(searchResult.authorName)
-        assertNull(searchResult.podcastName)
-        assertNull(searchResult.duration)
-        assertNull(searchResult.episodeCount)
-        assertNull(searchResult.score)
+        assertEquals(1, successResult.data.sections.size)
+        val section = successResult.data.sections[0]
+        assertEquals("Malformed Section", section.name)
+        assertEquals(1, section.order)
+
+        val podcast = section.content[0] as com.mod.thmanyah_android_challenge.domain.model.Podcast
+        assertEquals("Completely Malformed", podcast.name)
+        assertEquals(0, podcast.episodeCount)
+        assertEquals(0L, podcast.duration)
+        assertEquals("en", podcast.language)
+        assertNull(podcast.score)
     }
 
-    @Test
-    fun `search should return Error for generic exceptions`() = runTest {
-        val query = "test"
-        val exception = RuntimeException("Unexpected search error")
-        whenever(mockSearchApiService.search(query)).thenThrow(exception)
-
-        val result = repository.search(query, 1)
-
-        assertTrue(result is Result.Error)
-        val errorResult = result as Result.Error
-        assertEquals(exception, errorResult.exception)
-        assertEquals("Unexpected search error", errorResult.exception.message)
-    }
-
-    private fun createMockSearchResponseDto(): SearchResponseDto {
+    private fun createMockSearchResponse(): SearchResponseDto {
         return SearchResponseDto(
-            results = listOf(
-                SearchResultDto(
-                    id = "podcast_1",
-                    name = "Test Podcast",
-                    description = "A test podcast description",
-                    avatarUrl = "https://test.com/podcast.jpg",
-                    type = "podcast",
-                    authorName = null,
-                    podcastName = null,
-                    duration = 1800L,
-                    episodeCount = 25,
-                    score = 95.0
+            sections = listOf(
+                SearchSectionDto(
+                    name = "Y",
+                    type = "adipisicing reprehenderit anim",
+                    contentType = "in Lorem nostrud",
+                    order = "aliqua pariatur",
+                    content = listOf(
+                        SearchContentItemDto(
+                            name = "Licensed Steel Chips",
+                            description = "The slim & simple Maple Gaming Keyboard",
+                            avatarUrl = "https://avatars.githubusercontent.com/u/8032461",
+                            podcastId = "7f2fe780-5f64-45ed-bfb7-8917fa1cf42f",
+                            episodeCount = "12",
+                            duration = "82952",
+                            language = "in dolore laborum",
+                            priority = "ullamco nisi esse sint ipsum",
+                            popularityScore = "magna in sint enim non",
+                            score = "minim"
+                        ),
+                        SearchContentItemDto(
+                            name = "Incredible Bronze Hat",
+                            description = "Another test podcast",
+                            avatarUrl = "https://avatars.githubusercontent.com/u/40003149",
+                            podcastId = "42c3cc6e-fec1-4cc2-86ed-2730c89be3a0",
+                            episodeCount = "99",
+                            duration = "43805",
+                            language = "culpa enim et non fugiat",
+                            priority = "fugiat enim",
+                            popularityScore = "fugiat",
+                            score = "Ut id officia"
+                        ),
+                        SearchContentItemDto(
+                            name = "Intelligent Cotton Chips",
+                            description = "Third test podcast",
+                            avatarUrl = "https://avatars.githubusercontent.com/u/72057587",
+                            podcastId = "215b3eb6-2dc7-4728-bccb-0915805057b0",
+                            episodeCount = "83",
+                            duration = "27782",
+                            language = "proident Duis enim aute",
+                            priority = "aliquip ad non occaecat in",
+                            popularityScore = "elit incididunt qui in laborum",
+                            score = "minim Duis"
+                        )
+                    )
                 ),
-                SearchResultDto(
-                    id = "episode_1",
-                    name = "Test Episode",
-                    description = "A test episode description",
-                    avatarUrl = "https://test.com/episode.jpg",
-                    type = "episode",
-                    authorName = "Episode Author",
-                    podcastName = "Host Podcast",
-                    duration = 1200L,
-                    episodeCount = null,
-                    score = 88.5
+                SearchSectionDto(
+                    name = "i",
+                    type = "commodo eu Duis",
+                    contentType = "Excepteur mollit ad pariatur in",
+                    order = "qui eu",
+                    content = listOf(
+                        SearchContentItemDto(
+                            name = "Oriental Steel Sausages",
+                            description = "Fourth test podcast",
+                            avatarUrl = "https://avatars.githubusercontent.com/u/57486917",
+                            podcastId = "9a2d4b00-cf18-4099-826d-2d6399221d4b",
+                            episodeCount = "29",
+                            duration = "46668",
+                            language = "quis sunt dolor veniam Duis",
+                            priority = "voluptate sed cupidatat sint",
+                            popularityScore = "laboris incididunt",
+                            score = "adipisicing Excepteur dolore"
+                        )
+                    )
                 )
-            ),
-            total = 2,
-            page = 1,
-            totalPages = 1
+            )
         )
     }
 }

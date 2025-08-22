@@ -3,4 +3,17 @@
     <string name="something_went_wrong">Something went wrong</string>
     <string name="retry">Retry</string>
     <string name="thmanyah">Thmanyah</string>
+    <string name="no_results_found">No results found</string>
+    <string name="no_results_found_for">No results found for \"%1$s\"</string>
+    <string name="start_typing_to_search">Start typing to search</string>
+    <string name="search_for_podcasts_episodes_audiobooks_and_articles">Search for podcasts, episodes, audiobooks, and articles</string>
+    <string name="found_results">Found %1$d results</string>
+    <string name="search_content_min_2_chars">Search content… (min 2 chars)</string>
+    <string name="searching_for">Searching for \"%1$s\"…</string>
+    <string name="search_results">Search Results</string>
+    <string name="found_items_in_sections_for">Found %1$d items in %2$d sections for \"%3$s\"</string>
+    <string name="end_of_search_results">End of search results</string>
+    <string name="search_failed">Search Failed</string>
+    <string name="failed_to_search_for">Failed to search for \"%1$s\"</string>
+    <string name="try_again">Try Again</string>
 </resources>
